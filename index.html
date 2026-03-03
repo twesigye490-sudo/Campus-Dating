@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campus Dating 🔥</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:linear-gradient(135deg,#ff416c,#ff4b2b);
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+margin:0;
+}
+
+.card{
+background:white;
+width:350px;
+padding:25px;
+border-radius:15px;
+text-align:center;
+box-shadow:0 10px 30px rgba(0,0,0,0.2);
+}
+
+input,select,textarea{
+width:100%;
+padding:10px;
+margin:6px 0;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+button{
+width:100%;
+padding:12px;
+border:none;
+background:#ff416c;
+color:white;
+font-weight:bold;
+border-radius:8px;
+cursor:pointer;
+margin-top:8px;
+}
+
+button:hover{
+opacity:0.9;
+}
+
+.hidden{
+display:none;
+}
+
+#profilePhoto{
+width:100%;
+height:300px;
+object-fit:cover;
+border-radius:10px;
+}
+
+.like{
+background:#2ecc71;
+}
+
+.pass{
+background:#999;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<h2>🔥 Campus Dating</h2>
+
+<!-- REGISTER -->
+<div id="registerPage">
+
+<input id="name" placeholder="Full Name">
+
+<input id="age" type="number" placeholder="Age">
+
+<select id="gender">
+<option value="">Gender</option>
+<option>Male</option>
+<option>Female</option>
+</select>
+
+<input id="campus" placeholder="Campus">
+
+<textarea id="bio" placeholder="Bio"></textarea>
+
+<input type="file" id="photo">
+
+<input id="email" placeholder="Email">
+
+<input id="password" type="password" placeholder="Password">
+
+<button onclick="register()">Create Account</button>
+
+<p onclick="showLogin()" style="cursor:pointer;color:#ff416c">
+Already have account? Login
+</p>
+
+</div>
+
+<!-- LOGIN -->
+<div id="loginPage" class="hidden">
+
+<input id="loginEmail" placeholder="Email">
+
+<input id="loginPassword" type="password" placeholder="Password">
+
+<button onclick="login()">Login</button>
+
+<p onclick="showRegister()" style="cursor:pointer;color:#ff416c">
+Create account
+</p>
+
+</div>
+
+<!-- SWIPE -->
+<div id="swipePage" class="hidden">
+
+<img id="profilePhoto">
+
+<h3 id="profileName"></h3>
+
+<p id="profileBio"></p>
+
+<button class="like" onclick="like()">❤️ Like</button>
+
+<button class="pass" onclick="pass()">❌ Pass</button>
+
+<button onclick="logout()">Logout</button>
+<div id="chatPage" class="hidden">
+
+<h3>Chat</h3>
+
+<div id="messages"></div>
+
+<input id="chatInput" placeholder="Type message">
+
+<button onclick="sendMessage()">Send</button>
+
+</div>
+
+</div>
+
+</div>
+
+
+<script type="module">
+
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"
+
+const supabase = createClient(
+"https://uyzkyxlrqwaxtdbjmfpr.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5emt5eGxycXdheHRkYmptZnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NTMyMDgsImV4cCI6MjA4ODEyOTIwOH0.c7ZzyFRr-gn-oKjCV5EV0PWW23RM3b59uT02x8CbFBk"
+)
+
+window.showLogin=()=>{
+document.getElementById("registerPage").classList.add("hidden")
+document.getElementById("loginPage").classList.remove("hidden")
+}
+
+window.showRegister=()=>{
+document.getElementById("loginPage").classList.add("hidden")
+document.getElementById("registerPage").classList.remove("hidden")
+}
+
+window.register=async()=>{
+
+let name=document.getElementById("name").value
+let age=document.getElementById("age").value
+let gender=document.getElementById("gender").value
+let campus=document.getElementById("campus").value
+let bio=document.getElementById("bio").value
+let email=document.getElementById("email").value
+let password=document.getElementById("password").value
+
+let file=document.getElementById("photo").files[0]
+
+if(!file){
+alert("upload photo")
+return
+}
+
+let {data:userData,error:authError}=await supabase.auth.signUp({
+email,
+password
+})
+
+if(authError){
+alert(authError.message)
+return
+}
+
+let userId=userData.user.id
+
+let filename=userId+"-"+file.name
+
+await supabase.storage
+.from("profile-photos")
+.upload(filename,file)
+
+let {data:urlData}=supabase
+.storage
+.from("profile-photos")
+.getPublicUrl(filename)
+
+let photo=urlData.publicUrl
+
+await supabase
+.from("profiles")
+.insert([{
+id:userId,
+name,
+age,
+gender,
+campus,
+bio,
+photo,
+email
+}])
+
+alert("Account created")
+
+showLogin()
+
+}
+
+window.login=async()=>{
+
+let email=document.getElementById("loginEmail").value
+let password=document.getElementById("loginPassword").value
+
+let {error}=await supabase.auth.signInWithPassword({
+email,
+password
+})
+
+if(error){
+alert(error.message)
+return
+}
+
+document.getElementById("loginPage").classList.add("hidden")
+document.getElementById("swipePage").classList.remove("hidden")
+
+loadProfiles()
+
+}
+
+window.logout=async()=>{
+await supabase.auth.signOut()
+location.reload()
+}
+
+let profiles=[]
+let index=0
+
+async function loadProfiles(){
+
+let {data}=await supabase
+.from("profiles")
+.select("*")
+
+profiles=data
+
+showProfile()
+
+}
+
+function showProfile() {
+
+    const profilePhoto = document.getElementById("profilePhoto");
+    const profileName = document.getElementById("profileName");
+    const profileBio = document.getElementById("profileBio");
+
+    if (profiles.length == 0) {
+        // No real profiles, but show placeholders
+        profilePhoto.src = "https://via.placeholder.com/300x300?text=No+Profile";
+        profileName.innerText = "No users yet";
+        profileBio.innerText = "Age: - | Campus: - \nBio: No bio available";
+        return;
+    }
+
+    // Show actual profile
+    const p = profiles[index];
+
+    profilePhoto.src = p.photo || "https://via.placeholder.com/300x300?text=No+Photo";
+    profileName.innerText = `${p.name}, ${p.age} | ${p.campus}`;
+    profileBio.innerText = p.bio || "No bio available";
+
+}
+
+window.like = async () => {
+
+let user = await supabase.auth.getUser()
+let myId = user.data.user.id
+let target = profiles[index].id
+
+await supabase.from("likes").insert([
+{
+user_id: myId,
+liked_user: target
+}
+])
+
+// check if other user liked you
+
+let {data} = await supabase
+.from("likes")
+.select("*")
+.eq("user_id", target)
+.eq("liked_user", myId)
+
+if(data.length > 0){
+
+alert("🎉 It's a Match!")
+
+await supabase.from("matches").insert([
+{
+user1: myId,
+user2: target
+}
+])
+
+}
+
+next()
+
+}
+
+window.pass=()=>{
+next()
+}
+
+function next(){
+
+index++
+
+if(index>=profiles.length){
+index=0
+}
+
+showProfile()
+
+}
+
+window.sendMessage = async () => {
+
+let text = document.getElementById("chatInput").value
+
+let user = await supabase.auth.getUser()
+
+let myId = user.data.user.id
+
+await supabase.from("messages").insert([
+{
+sender: myId,
+receiver: currentChatUser,
+text: text
+}
+])
+
+loadMessages()
+
+}
+</script>
+
+</body>
+</html>
